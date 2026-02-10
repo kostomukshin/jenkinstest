@@ -3,8 +3,8 @@ pipeline {
 
   environment {
     AWS_REGION   = "eu-west-1"
-    ECR_REPO     = "597765856364.dkr.ecr.eu-west-1.amazonaws.com/custom-wordpress" // твой ecr_repository_url
-    ECR_REGISTRY = "597765856364.dkr.ecr.eu-west-1.amazonaws.com/custom-wordpress" // без /custom-wordpress
+    ECR_REPO     = "597765856364.dkr.ecr.eu-west-1.amazonaws.com" // твой ecr_repository_url
+    ECR_REGISTRY = "597765856364.dkr.ecr.eu-west-1.amazonaws.com" // без /custom-wordpress
     IMAGE_TAG    = "latest"
     ASG_NAME     = "wp-asg"
   }
