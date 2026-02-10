@@ -16,37 +16,37 @@ pipeline {
 
     stage('Build') {
       steps {
-        sh '''
+        sh """
           set -eux
-          docker build -t custom-wordpress:'"${IMAGE_TAG}"' .
-        '''
+          docker build -t custom-wordpress:${IMAGE_TAG} .
+        """
       }
     }
 
     stage('Login & Push to ECR') {
       steps {
-        sh '''
+        sh """
           set -eux
           aws sts get-caller-identity
 
-          aws ecr get-login-password --region '"${AWS_REGION}"' | \
-            docker login --username AWS --password-stdin '"${ECR_REGISTRY}"'
+          aws ecr get-login-password --region ${AWS_REGION} | \
+            docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
-          docker tag custom-wordpress:'"${IMAGE_TAG}"' '"${ECR_REPO}"':'"${IMAGE_TAG}"'
-          docker push '"${ECR_REPO}"':'"${IMAGE_TAG}"'
-        '''
+          docker tag custom-wordpress:${IMAGE_TAG} ${ECR_REPO}:${IMAGE_TAG}
+          docker push ${ECR_REPO}:${IMAGE_TAG}
+        """
       }
     }
 
     stage('Instance Refresh') {
       steps {
-        sh '''
+        sh """
           set -eux
           aws autoscaling start-instance-refresh \
-            --auto-scaling-group-name '"${ASG_NAME}"' \
+            --auto-scaling-group-name ${ASG_NAME} \
             --preferences MinHealthyPercentage=50,InstanceWarmup=180 \
-            --region '"${AWS_REGION}"'
-        '''
+            --region ${AWS_REGION}
+        """
       }
     }
   }
