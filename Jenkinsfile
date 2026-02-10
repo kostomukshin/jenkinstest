@@ -3,8 +3,13 @@ pipeline {
 
   environment {
     AWS_REGION   = "eu-west-1"
-    ECR_REPO     = "597765856364.dkr.ecr.eu-west-1.amazonaws.com" // твой ecr_repository_url
-    ECR_REGISTRY = "597765856364.dkr.ecr.eu-west-1.amazonaws.com" // без /custom-wordpress
+
+    // repo (с /custom-wordpress)
+    ECR_REPO     = "597765856364.dkr.ecr.eu-west-1.amazonaws.com/custom-wordpress"
+
+    // registry (БЕЗ /custom-wordpress)
+    ECR_REGISTRY = "597765856364.dkr.ecr.eu-west-1.amazonaws.com"
+
     IMAGE_TAG    = "latest"
     ASG_NAME     = "wp-asg"
   }
@@ -42,10 +47,17 @@ pipeline {
       steps {
         sh """
           set -eux
-          aws autoscaling start-instance-refresh \
+
+          # если refresh уже идет — не падаем
+          if aws autoscaling start-instance-refresh \
             --auto-scaling-group-name ${ASG_NAME} \
             --preferences MinHealthyPercentage=50,InstanceWarmup=180 \
-            --region ${AWS_REGION}
+            --region ${AWS_REGION}; then
+            echo "Instance refresh started."
+          else
+            echo "Instance refresh already in progress. Skipping."
+            exit 0
+          fi
         """
       }
     }
