@@ -7,7 +7,7 @@
 </head>
 <body>
 <header style="padding:16px;border-bottom:1px solid #ccc;">
-  <h1>WE ARE TESTING IF CONTAINERS ARE THE SAME ON INSTANCES</h1>
+  <h1>THIS IS VERSION 1.0</h1>
 </header>
 
 

@@ -85,3 +85,52 @@ jobs:
             --region "${AWS_REGION}"
 
           echo "Promoted latest -> stable"
+
+      - name: Start ASG Instance Refresh
+        id: start_refresh
+        run: |
+          set -euxo pipefail
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "${ASG_NAME}" \
+            --preferences MinHealthyPercentage=50,InstanceWarmup=180 \
+            --region "${AWS_REGION}" \
+            --query "InstanceRefreshId" --output text)
+          echo "refresh_id=${REFRESH_ID}" >> $GITHUB_OUTPUT
+          echo "Started Instance Refresh: ${REFRESH_ID}"
+
+      - name: Wait for Instance Refresh to complete
+        run: |
+          set -euo pipefail
+          REFRESH_ID="${{ steps.start_refresh.outputs.refresh_id }}"
+          echo "Waiting for Instance Refresh: ${REFRESH_ID}"
+
+          for i in $(seq 1 120); do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "${ASG_NAME}" \
+              --instance-refresh-ids "${REFRESH_ID}" \
+              --region "${AWS_REGION}" \
+              --query "InstanceRefreshes[0].Status" --output text)
+
+            REASON=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "${ASG_NAME}" \
+              --instance-refresh-ids "${REFRESH_ID}" \
+              --region "${AWS_REGION}" \
+              --query "InstanceRefreshes[0].StatusReason" --output text)
+
+            echo "[$i/120] Status=${STATUS} Reason=${REASON}"
+
+            if [ "${STATUS}" = "Successful" ]; then
+              echo "Refresh completed successfully."
+              exit 0
+            fi
+
+            if [ "${STATUS}" = "Failed" ] || [ "${STATUS}" = "Cancelled" ]; then
+              echo "Refresh did not complete: ${STATUS} (${REASON})"
+              exit 1
+            fi
+
+            sleep 15
+          done
+
+          echo "Timeout waiting for refresh."
+          exit 1
