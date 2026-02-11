@@ -113,6 +113,7 @@ jobs:
           set -euxo pipefail
           REFRESH_ID=$(aws autoscaling start-instance-refresh \
             --auto-scaling-group-name "${ASG_NAME}" \
+            --preferences MinHealthyPercentage=50,InstanceWarmup=120 \
             --region "${AWS_REGION}" \
             --query "InstanceRefreshId" --output text)
           echo "refresh_id=${REFRESH_ID}" >> $GITHUB_OUTPUT
@@ -134,7 +135,6 @@ jobs:
             REASON=$(aws autoscaling describe-instance-refreshes \
               --auto-scaling-group-name "${ASG_NAME}" \
               --instance-refresh-ids "${REFRESH_ID}" \
-              --preferences MinHealthyPercentage=50,InstanceWarmup=120 \
               --region "${AWS_REGION}" \
               --query "InstanceRefreshes[0].StatusReason" --output text)
 
