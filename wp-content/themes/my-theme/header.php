@@ -7,7 +7,7 @@
 </head>
 <body>
 <header style="padding:16px;border-bottom:1px solid #ccc;">
-  <h1>THIS IS VERSION 1.1</h1>
+  <h1>THIS IS VERSION 1.2 with min=100,max=200,warmup=90</h1>
 </header>
 
 
