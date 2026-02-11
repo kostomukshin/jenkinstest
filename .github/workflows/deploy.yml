@@ -24,12 +24,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: arn:aws:iam::597765856364:role/GitHubActionsECRDeployRole
-
       - name: Verify AWS identity
         run: aws sts get-caller-identity
 
