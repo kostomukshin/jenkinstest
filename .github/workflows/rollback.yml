@@ -1,0 +1,39 @@
+name: Disaster Rollback (stable <- previous)
+
+on:
+  workflow_dispatch: {}
+
+env:
+  AWS_REGION: eu-west-1
+  AWS_DEFAULT_REGION: eu-west-1
+  ECR_REPO_NAME: custom-wordpress
+  ASG_NAME: wp-asg
+
+jobs:
+  rollback:
+    runs-on: [self-hosted, Linux, X64]
+
+    steps:
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Set stable <- previous
+        run: |
+          set -euxo pipefail
+
+          MANIFEST=$(aws ecr batch-get-image \
+            --repository-name "${ECR_REPO_NAME}" \
+            --image-ids imageTag="previous" \
+            --region "${AWS_REGION}" \
+            --query 'images[0].imageManifest' \
+            --output text)
+
+          aws ecr put-image \
+            --repository-name "${ECR_REPO_NAME}" \
+            --image-tag "stable" \
+            --image-manifest "$MANIFEST" \
+            --region "${AWS_REGION}"
+
+          echo "Rollback applied: stable <- previous"
+
+
