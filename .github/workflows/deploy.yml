@@ -1,4 +1,4 @@
-name: Deploy WordPress (latest -> stable, keep previous)
+name: Deploy WordPress (latest -> stable, keep previous, refresh)
 
 on:
   push:
@@ -45,27 +45,48 @@ jobs:
           docker tag custom-wordpress:${IMAGE_TAG} ${ECR_REPO}:${IMAGE_TAG}
           docker push ${ECR_REPO}:${IMAGE_TAG}
 
-      - name: Save current stable -> previous (if stable exists)
+      - name: Save current stable -> previous (idempotent)
         run: |
           set -euo pipefail
+
+          STABLE_DIGEST=$(aws ecr describe-images \
+            --repository-name "${ECR_REPO_NAME}" \
+            --image-ids imageTag=stable \
+            --region "${AWS_REGION}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null || true)
+
+          if [ -z "$STABLE_DIGEST" ] || [ "$STABLE_DIGEST" = "None" ]; then
+            echo "No stable tag found yet. Skipping previous."
+            exit 0
+          fi
+
+          PREV_DIGEST=$(aws ecr describe-images \
+            --repository-name "${ECR_REPO_NAME}" \
+            --image-ids imageTag=previous \
+            --region "${AWS_REGION}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null || true)
+
+          if [ "$PREV_DIGEST" = "$STABLE_DIGEST" ]; then
+            echo "previous already equals stable ($STABLE_DIGEST). Skipping."
+            exit 0
+          fi
 
           MANIFEST=$(aws ecr batch-get-image \
             --repository-name "${ECR_REPO_NAME}" \
             --image-ids imageTag="stable" \
             --region "${AWS_REGION}" \
             --query 'images[0].imageManifest' \
-            --output text 2>/dev/null || true)
+            --output text)
 
-          if [ -n "$MANIFEST" ] && [ "$MANIFEST" != "None" ]; then
-            aws ecr put-image \
-              --repository-name "${ECR_REPO_NAME}" \
-              --image-tag "previous" \
-              --image-manifest "$MANIFEST" \
-              --region "${AWS_REGION}"
-            echo "Saved stable -> previous"
-          else
-            echo "No stable tag found yet. Skipping previous."
-          fi
+          aws ecr put-image \
+            --repository-name "${ECR_REPO_NAME}" \
+            --image-tag "previous" \
+            --image-manifest "$MANIFEST" \
+            --region "${AWS_REGION}"
+
+          echo "Saved stable -> previous"
 
       - name: Promote latest -> stable
         run: |
