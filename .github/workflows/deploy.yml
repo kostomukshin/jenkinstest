@@ -1,4 +1,4 @@
-name: Build & Deploy WordPress (ECR + ASG Refresh)
+name: Deploy WordPress (latest -> stable, keep previous)
 
 on:
   push:
@@ -11,13 +11,14 @@ on:
 env:
   AWS_REGION: eu-west-1
   AWS_DEFAULT_REGION: eu-west-1
+  ECR_REPO_NAME: custom-wordpress
   ECR_REPO: 597765856364.dkr.ecr.eu-west-1.amazonaws.com/custom-wordpress
   ECR_REGISTRY: 597765856364.dkr.ecr.eu-west-1.amazonaws.com
-  IMAGE_TAG: latest
   ASG_NAME: wp-asg
+  IMAGE_TAG: latest
 
 jobs:
-  build_push_refresh:
+  deploy:
     runs-on: [self-hosted, Linux, X64]
 
     steps:
@@ -33,63 +34,54 @@ jobs:
           aws ecr get-login-password --region "${AWS_REGION}" \
             | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
-      - name: Build image
+      - name: Build image (local latest)
         run: |
           set -euxo pipefail
           docker build -t custom-wordpress:${IMAGE_TAG} .
 
-      - name: Tag & Push image to ECR
+      - name: Push image to ECR (:latest)
         run: |
           set -euxo pipefail
           docker tag custom-wordpress:${IMAGE_TAG} ${ECR_REPO}:${IMAGE_TAG}
           docker push ${ECR_REPO}:${IMAGE_TAG}
 
-      - name: Start ASG Instance Refresh
-        id: start_refresh
-        run: |
-          set -euxo pipefail
-          REFRESH_ID=$(aws autoscaling start-instance-refresh \
-            --auto-scaling-group-name "${ASG_NAME}" \
-            --preferences MinHealthyPercentage=50,InstanceWarmup=180 \
-            --region "${AWS_REGION}" \
-            --query "InstanceRefreshId" --output text)
-          echo "refresh_id=${REFRESH_ID}" >> $GITHUB_OUTPUT
-          echo "Started Instance Refresh: ${REFRESH_ID}"
-
-      - name: Wait for Instance Refresh to complete
+      - name: Save current stable -> previous (if stable exists)
         run: |
           set -euo pipefail
-          REFRESH_ID="${{ steps.start_refresh.outputs.refresh_id }}"
-          echo "Waiting for Instance Refresh: ${REFRESH_ID}"
 
-          # timeout 30 минут: 120 * 15s
-          for i in $(seq 1 120); do
-            STATUS=$(aws autoscaling describe-instance-refreshes \
-              --auto-scaling-group-name "${ASG_NAME}" \
-              --instance-refresh-ids "${REFRESH_ID}" \
-              --region "${AWS_REGION}" \
-              --query "InstanceRefreshes[0].Status" --output text)
+          MANIFEST=$(aws ecr batch-get-image \
+            --repository-name "${ECR_REPO_NAME}" \
+            --image-ids imageTag="stable" \
+            --region "${AWS_REGION}" \
+            --query 'images[0].imageManifest' \
+            --output text 2>/dev/null || true)
 
-            REASON=$(aws autoscaling describe-instance-refreshes \
-              --auto-scaling-group-name "${ASG_NAME}" \
-              --instance-refresh-ids "${REFRESH_ID}" \
-              --region "${AWS_REGION}" \
-              --query "InstanceRefreshes[0].StatusReason" --output text)
+          if [ -n "$MANIFEST" ] && [ "$MANIFEST" != "None" ]; then
+            aws ecr put-image \
+              --repository-name "${ECR_REPO_NAME}" \
+              --image-tag "previous" \
+              --image-manifest "$MANIFEST" \
+              --region "${AWS_REGION}"
+            echo "Saved stable -> previous"
+          else
+            echo "No stable tag found yet. Skipping previous."
+          fi
 
-            echo "[$i/120] Status=${STATUS} Reason=${REASON}"
+      - name: Promote latest -> stable
+        run: |
+          set -euxo pipefail
 
-            if [ "${STATUS}" = "Successful" ]; then
-              echo "Instance Refresh completed successfully."
-              exit 0
-            fi
+          NEW_MANIFEST=$(aws ecr batch-get-image \
+            --repository-name "${ECR_REPO_NAME}" \
+            --image-ids imageTag="latest" \
+            --region "${AWS_REGION}" \
+            --query 'images[0].imageManifest' \
+            --output text)
 
-            if [ "${STATUS}" = "Failed" ] || [ "${STATUS}" = "Cancelled" ]; then
-              echo "Instance Refresh did not complete: ${STATUS} (${REASON})"
-              exit 1
-            fi
+          aws ecr put-image \
+            --repository-name "${ECR_REPO_NAME}" \
+            --image-tag "stable" \
+            --image-manifest "$NEW_MANIFEST" \
+            --region "${AWS_REGION}"
 
-            sleep 15
-          done
-
-          echo "Timeout waiting for Instance Refresh to complete."
-          exit 1
+          echo "Promoted latest -> stable"
