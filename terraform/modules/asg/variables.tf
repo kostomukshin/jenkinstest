@@ -1,0 +1,11 @@
+variable "ami_id" { type = string }
+variable "wp_instance_type" { type = string }
+variable "asg_min" { type = number }
+variable "asg_desired" { type = number }
+variable "asg_max" { type = number }
+variable "subnets" { type = list(string) }
+variable "wp_sg_id" { type = string }
+variable "target_group_arn" { type = string }
+variable "db_host" { type = string }
+variable "ecr_repository_url" { type = string }
+variable "secret_arn" { type = string }
