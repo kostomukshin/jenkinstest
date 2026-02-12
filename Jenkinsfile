@@ -4,10 +4,8 @@ pipeline {
   environment {
     AWS_REGION   = "eu-west-1"
 
-    // repo (с /custom-wordpress)
     ECR_REPO     = "597765856364.dkr.ecr.eu-west-1.amazonaws.com/custom-wordpress"
 
-    // registry (БЕЗ /custom-wordpress)
     ECR_REGISTRY = "597765856364.dkr.ecr.eu-west-1.amazonaws.com"
 
     IMAGE_TAG    = "latest"
