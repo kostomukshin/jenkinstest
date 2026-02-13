@@ -30,7 +30,7 @@
       <h4>Dream Team</h4>
       <p>
         Team 3 • Cloud & DevOps Engineers<br>
-        Docker • Terraform • AWS • GitHub Actions
+        Arturs , Vladans, Martins, Valentyna
       </p>
     </div>
 
