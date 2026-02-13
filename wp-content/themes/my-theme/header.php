@@ -254,7 +254,7 @@ body{
       <div class="brand__title"><?php bloginfo('name'); ?></div>
       <div class="brand__meta">Cloud DevOps Bootcamp Project</div>
     </div>
-    <div class="pill">v1.6 • ASG: 100–200 • warmup 120s</div>
+    <div class="pill">v1.6 • warmup 120s</div>
   </div>
 </header>
 
