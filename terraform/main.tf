@@ -1,4 +1,4 @@
-# Data sources and locals (shared)
+# Data sources and locals  (shared)
 data "aws_vpc" "default" { default = true }
 
 data "aws_subnets" "default" {
@@ -105,3 +105,4 @@ module "cloudwatch" {
   asg_name               = module.asg.asg_name
   rds_identifier         = module.rds.rds_identifier
 }
+
